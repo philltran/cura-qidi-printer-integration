@@ -57,4 +57,5 @@ Thank you to Nick Kuvyrkin ([nkuvyrkin](https://github.com/nkuvyrkin)), [ducphuc
 This project is inspired and using code from:
 * https://github.com/Kriechi/Cura-DuetRRFPlugin
 * https://github.com/Jeredian/mks-wifi-plugin
+* https://github.com/alkaes/QidiPrint
 * ChituCodeWriter.py is taken from https://github.com/Spanni26/ChituCodeWriter
