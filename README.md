@@ -13,7 +13,7 @@ Simply open Cura and go to the **Marketplace** in the menubar, search for the Qi
 ## Manual Installation
 
 With Cura not running, unpack the zip file from the
-[release](https://github.com/alkaes/QidiPrint/releases/latest) to this
+[release](https://github.com/philltran/cura-qidi-printer-integration/releases) to this
 specific folder:
 
   * Windows: `%USERPROFILE%\AppData\Roaming\cura\5.2\plugins\`
@@ -52,7 +52,7 @@ should be the big blue button with you printer name on it!
 
 ## License
 
-Thank you to Nick Kuvyrkin ([nkuvyrkin](https://github.com/nkuvyrkin)), [ducphuc](https://github.com/ducphuc), [jvrobert](https://github.com/jvrobert) and [philltran](https://github.com/philltran) for working on Cura 5.x support.
+Thank you to Nick Kuvyrkin ([nkuvyrkin](https://github.com/nkuvyrkin)), [ducphuc](https://github.com/ducphuc), [jvrobert](https://github.com/jvrobert) and [alkaes](https://github.com/alkaes) for working on Cura 5.x support.
 
 This project is inspired and using code from:
 * https://github.com/Kriechi/Cura-DuetRRFPlugin
