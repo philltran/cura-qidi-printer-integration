@@ -185,18 +185,18 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         printer.updateState(job_state)
         self.printerStatusChanged.emit()
 
-    def requestWrite(self, node, fileName=None, *args, **kwargs):
+    def requestWrite(self, node, file_name=None, *args, **kwargs):
         if self._stage != OutputStage.ready or self._qidi._isPrinting:
             Message(catalog.i18nc('@info:status', 'Cannot Print, printer is busy'), title=catalog.i18nc("@info:title", "BUSY")).show()
             raise OutputDeviceError.DeviceBusyError()
 
         # Make sure post-processing plugin are run on the gcode
         self.writeStarted.emit(self)
-        if fileName:
-            fileName = os.path.splitext(fileName)[0]
+        if file_name:
+            file_name = os.path.splitext(file_name)[0]
         else:
-            fileName = "%s" % Application.getInstance().getPrintInformation().jobName
-        self._target_send_file_name = fileName
+            file_name = "%s" % Application.getInstance().getPrintInformation().jobName
+        self._target_send_file_name = file_name
 
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qml', 'UploadFilename.qml')
         self._dialog = CuraApplication.getInstance().createQmlComponent(path, {"manager": self})
@@ -209,20 +209,20 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._dialog.findChild(QObject, "nameField").setProperty('focus', True)        
 
     def onFilenameChanged(self):
-        fileName = self._dialog.findChild(QObject, "nameField").property('text').strip()
+        file_name = self._dialog.findChild(QObject, "nameField").property('text').strip()
         forbidden_characters = "\"'´`<>()[]?*\,;:&%#$!"
         for forbidden_character in forbidden_characters:
-            if forbidden_character in fileName:
+            if forbidden_character in file_name:
                 self._dialog.setProperty('validName', False)
                 self._dialog.setProperty(
                     'validationError', 'Filename cannot contain {}'.format(forbidden_characters))
                 return
-        if fileName == '.' or fileName == '..':
+        if file_name == '.' or file_name == '..':
             self._dialog.setProperty('validName', False)
             self._dialog.setProperty(
                 'validationError', 'Filename cannot be "." or ".."')
             return
-        self._dialog.setProperty('validName', len(fileName) > 0)
+        self._dialog.setProperty('validName', len(file_name) > 0)
         self._dialog.setProperty('validationError', 'Filename too short')
 
     def startSendingThread(self):
