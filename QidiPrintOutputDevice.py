@@ -48,6 +48,8 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._PluginName = 'QIDI Print'
         self.setPriority(3)
 
+        self._error_message = ''
+
         self._application = CuraApplication.getInstance()
         self._preferences = Application.getInstance().getPreferences()
         self._preferences.addPreference("QidiPrint/autoprint", False)
@@ -222,7 +224,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
 
     def startSendingThread(self):
         Logger.log('i', '=============QIDI SEND BEGIN============')
-        self._errorMsg = ''
+        self._error_message = ''
 
         self._qidi._abort = False
         self._stage = OutputStage.writing
@@ -260,8 +262,8 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             result_msg = 'Connection timeout'
         elif self._result == QidiResult.WRITE_ERROR:
             self.writeError.emit(self)
-            result_msg = self._errorMsg
-            if 'create file' in self._errorMsg:
+            result_msg = self._error_message
+            if 'create file' in self._error_message:
                 m = Message(catalog.i18nc('@info:status', ' Write error, please check that the SD card /U disk has been inserted'), lifetime=0)
                 m.show()
         elif self._result == QidiResult.FILE_EMPTY:
