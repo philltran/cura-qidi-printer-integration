@@ -105,7 +105,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
                 self.printers[0].updateState("offline")
 
     def _update(self):
-        if self._qidi._connected == False:
+        if not self._qidi.connected:
             Thread(target=self._qidi.connect, daemon=True, name="Qidi Connect").start()
             self.printerStatusChanged.emit()
             return

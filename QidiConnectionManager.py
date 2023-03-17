@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty
 from PyQt6.QtNetwork import QUdpSocket, QHostAddress
 
 from typing import  cast
@@ -78,6 +78,10 @@ class QidiConnectionManager(QObject):
     def __send(self, cmd):
         new_command = cast(str, cmd).encode(self._file_encode, 'ignore') if type(cmd) is str else cast(bytes, cmd)  # type: bytes
         self._socket.writeDatagram(new_command, self._ip, self._port)
+
+    @pyqtProperty(int, notify=conectionStateChanged)
+    def connected(self):
+        return self._connected
 
     def __recieve(self, timeout_ms=100):
         if timeout_ms > 0:
