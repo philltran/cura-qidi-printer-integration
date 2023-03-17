@@ -385,7 +385,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         return self.getFirmwareName()
 
     def getFirmwareName(self):
-        return self._qidi._firmware_ver
+        return self._qidi.firmware_version
 
     @pyqtProperty(str, notify=printerStatusChanged)
     def xPosition(self) -> str:

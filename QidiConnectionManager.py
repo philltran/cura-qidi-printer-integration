@@ -87,6 +87,10 @@ class QidiConnectionManager(QObject):
     def status(self):
         return self._status
 
+    @property
+    def firmware_version(self):
+        return self._firmware_ver
+
     def __recieve(self, timeout_ms=100):
         if timeout_ms > 0:
             start = Timer() + timeout_ms / 1000.0
