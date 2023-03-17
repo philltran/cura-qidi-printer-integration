@@ -1,14 +1,7 @@
 from enum import Enum
 import os.path
-from time import time, sleep
 
-import subprocess, re, threading, platform, struct, traceback, sys, base64, json, urllib
-from typing import cast, Any, Callable, Dict, List, Optional
-
-from PyQt6.QtCore import QFile, QUrl, QObject, QCoreApplication, QByteArray, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtQml import QQmlComponent, QQmlContext
-from timeit import default_timer as Timer
+from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
 from cura.CuraApplication import CuraApplication
 from cura.PrinterOutput.PrinterOutputDevice import PrinterOutputDevice, ConnectionState, ConnectionType
@@ -17,28 +10,20 @@ from cura.PrinterOutput.Models.PrintJobOutputModel import PrintJobOutputModel
 from cura.PrinterOutput.GenericOutputController import GenericOutputController
 
 from UM.Resources import Resources
-import UM.Qt.ListModel
 
 from UM.Application import Application
 from UM.Logger import Logger
 from UM.Message import Message
 from UM.Mesh.MeshWriter import MeshWriter
-from UM.PluginRegistry import PluginRegistry
-from UM.OutputDevice.OutputDevice import OutputDevice
 from UM.OutputDevice import OutputDeviceError
-from UM.Platform import Platform
-from UM.Signal import signalemitter
-from UM.Job import Job
 
 from UM.i18n import i18nCatalog
 from .ChituCodeWriter import ChituCodeWriter
 
 from .QidiConnectionManager import QidiConnectionManager, QidiResult
 
-from queue import Queue
-from threading import Thread, Event
-from time import time
-from typing import Union, Optional, List, cast, TYPE_CHECKING
+from threading import Thread
+from typing import Optional
 
 catalog = i18nCatalog("cura")
 
@@ -319,7 +304,6 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
                         data[-1] = "M107 T-2 ;Disable chamber loop\n" + data[-1]
                         setattr(scene, "gcode_dict", gcode_dict)
                         return
-
 
     def onFilenameAccepted(self):
         self.targetSendFileName = self._dialog.findChild(QObject, "nameField").property('text').strip()
