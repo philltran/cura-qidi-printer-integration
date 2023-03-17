@@ -48,7 +48,10 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._PluginName = 'QIDI Print'
         self.setPriority(3)
 
-        self._error_message = ''
+        self._error_message = ""
+        self._cancel_print = False
+        self._target_send_file_name = ""
+        self._dialog = None
 
         self._application = CuraApplication.getInstance()
         self._preferences = Application.getInstance().getPreferences()
@@ -126,7 +129,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self.sendCommand("M24")
 
     def cancelPrint(self):
-        self._cancelPrint = True
+        self._cancel_print = True
         self.sendCommand("M33")        
 
     def _update_status(self):
@@ -165,7 +168,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
                 if progress > 0:
                     print_job.updateTimeTotal(int(elapsed / progress))
             if self._qidi._isIdle:
-                if self._cancelPrint:
+                if self._cancel_print:
                     job_state = 'aborting'
                 else:
                     job_state = 'paused'
@@ -176,7 +179,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             if printer.activePrintJob:
                 printer.updateActivePrintJob(None)
             job_state = 'idle'
-            self._cancelPrint = False
+            self._cancel_print = False
             print_job = None
 
         printer.updateState(job_state)
@@ -193,7 +196,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             fileName = os.path.splitext(fileName)[0]
         else:
             fileName = "%s" % Application.getInstance().getPrintInformation().jobName
-        self.targetSendFileName = fileName
+        self._target_send_file_name = fileName
 
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qml', 'UploadFilename.qml')
         self._dialog = CuraApplication.getInstance().createQmlComponent(path, {"manager": self})
@@ -201,8 +204,8 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._dialog.accepted.connect(self.onFilenameAccepted)
         self._dialog.show()
         self._dialog.findChild(QObject, "autoPrint").setProperty('checked', self._autoPrint)
-        self._dialog.findChild(QObject, "nameField").setProperty('text', self.targetSendFileName)
-        self._dialog.findChild(QObject, "nameField").select(0, len(self.targetSendFileName))
+        self._dialog.findChild(QObject, "nameField").setProperty('text', self._target_send_file_name)
+        self._dialog.findChild(QObject, "nameField").select(0, len(self._target_send_file_name))
         self._dialog.findChild(QObject, "nameField").setProperty('focus', True)        
 
     def onFilenameChanged(self):
@@ -229,7 +232,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._qidi._abort = False
         self._stage = OutputStage.writing
 
-        res = self._qidi.sendfile(self.targetSendFileName)
+        res = self._qidi.sendfile(self._target_send_file_name)
         if self._message:
             self._message.hide()
             self._message = None  # type:Optional[Message]
@@ -283,7 +286,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             return
 
         cooling_chamber = global_container_stack.getProperty("cooling_chamber", "value")
-        if cooling_chamber == False:
+        if not cooling_chamber:
             return
 
         cooling_chamber_at_layer = global_container_stack.getProperty("cooling_chamber_at_layer", "value")
@@ -308,12 +311,12 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
                         return
 
     def onFilenameAccepted(self):
-        self.targetSendFileName = self._dialog.findChild(QObject, "nameField").property('text').strip()
+        self._target_send_file_name = self._dialog.findChild(QObject, "nameField").property('text').strip()
         autoprint = self._dialog.findChild(QObject, "autoPrint").property('checked')
         if autoprint != self._autoPrint:
             self._autoPrint = autoprint
             self._preferences.setValue("QidiPrint/autoprint", self._autoPrint)
-        Logger.log("d", self._name + " | Filename set to: " + self.targetSendFileName)
+        Logger.log("d", self._name + " | Filename set to: " + self._target_send_file_name)
         self._dialog.deleteLater()        
         self.updateChamberFan()
         success = False
