@@ -156,14 +156,14 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
                 printer.updateActivePrintJob(print_job)
             else:
                 print_job = printer.activePrintJob
-            elapsed = self._qidi._printing_time
-            print_job.updateTimeElapsed(int(self._qidi._printing_time))
+            elapsed = int(self._qidi._printing_time)
+            print_job.updateTimeElapsed(elapsed)
             print_job.updateName(self._qidi._printing_filename)
 
             if self._qidi._print_total > 0:
                 progress = float(self._qidi._print_now) / float(self._qidi._print_total)
                 if progress > 0:
-                    print_job.updateTimeTotal(int(self._qidi._printing_time / progress))
+                    print_job.updateTimeTotal(int(elapsed / progress))
             if self._qidi._isIdle:
                 if self._cancelPrint:
                     job_state = 'aborting'
