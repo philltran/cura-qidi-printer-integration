@@ -134,7 +134,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
 
     def _update_status(self):
         printer = self.printers[0]
-        status = self._qidi._status
+        status = self._qidi.status
         if "bed_nowtemp" in status:
             printer.updateBedTemperature(int(status["bed_nowtemp"]))
         if "bed_targettemp" in status:
@@ -389,29 +389,29 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
 
     @pyqtProperty(str, notify=printerStatusChanged)
     def xPosition(self) -> str:
-        if "x_pos" in self._qidi._status:
-            return self._qidi._status["x_pos"][:-1]
+        if "x_pos" in self._qidi.status:
+            return self._qidi.status["x_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
     def yPosition(self) -> str:
-        if "y_pos" in self._qidi._status:
-            return self._qidi._status["y_pos"][:-1]
+        if "y_pos" in self._qidi.status:
+            return self._qidi.status["y_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
     def zPosition(self) -> str:
-        if "z_pos" in self._qidi._status:
-            return self._qidi._status["z_pos"][:-1]
+        if "z_pos" in self._qidi.status:
+            return self._qidi.status["z_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
     def coolingFan(self) -> str:
-        if "fan" in self._qidi._status:
-            fan = float(self._qidi._status["fan"])
+        if "fan" in self._qidi.status:
+            fan = float(self._qidi.status["fan"])
             return "{}".format(int(fan/2.55))
         else:
             return ""

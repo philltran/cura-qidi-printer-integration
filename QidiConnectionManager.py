@@ -83,6 +83,10 @@ class QidiConnectionManager(QObject):
     def connected(self):
         return self._connected
 
+    @property
+    def status(self):
+        return self._status
+
     def __recieve(self, timeout_ms=100):
         if timeout_ms > 0:
             start = Timer() + timeout_ms / 1000.0
