@@ -153,21 +153,21 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             if "e2_targettemp" in status:
                 extruder.updateTargetHotendTemperature(int(status["e2_targettemp"]))
 
-        if self._qidi._isPrinting:
+        if self._qidi.is_printing:
             if printer.activePrintJob is None:
                 print_job = PrintJobOutputModel(output_controller=self._output_controller)
                 printer.updateActivePrintJob(print_job)
             else:
                 print_job = printer.activePrintJob
-            elapsed = int(self._qidi._printing_time)
+            elapsed = int(self._qidi.printing_time)
             print_job.updateTimeElapsed(elapsed)
-            print_job.updateName(self._qidi._printing_filename)
+            print_job.updateName(self._qidi.printing_filename)
 
-            if self._qidi._print_total > 0:
-                progress = float(self._qidi._print_now) / float(self._qidi._print_total)
+            if self._qidi.print_total > 0:
+                progress = float(self._qidi.print_now) / float(self._qidi.print_total)
                 if progress > 0:
                     print_job.updateTimeTotal(int(elapsed / progress))
-            if self._qidi._isIdle:
+            if self._qidi.is_idle:
                 if self._cancel_print:
                     job_state = 'aborting'
                 else:
@@ -186,7 +186,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self.printerStatusChanged.emit()
 
     def requestWrite(self, node, file_name=None, *args, **kwargs):
-        if self._stage != OutputStage.ready or self._qidi._isPrinting:
+        if self._stage != OutputStage.ready or self._qidi.is_printing:
             Message(catalog.i18nc('@info:status', 'Cannot Print, printer is busy'), title=catalog.i18nc("@info:title", "BUSY")).show()
             raise OutputDeviceError.DeviceBusyError()
 
