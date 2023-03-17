@@ -383,28 +383,28 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         return self._qidi._firmware_ver
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def xPosition(self) -> bool:
+    def xPosition(self) -> str:
         if "x_pos" in self._qidi._status:
             return self._qidi._status["x_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def yPosition(self) -> bool:
+    def yPosition(self) -> str:
         if "y_pos" in self._qidi._status:
             return self._qidi._status["y_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def zPosition(self) -> bool:
+    def zPosition(self) -> str:
         if "z_pos" in self._qidi._status:
             return self._qidi._status["z_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def coolingFan(self) -> bool:
+    def coolingFan(self) -> str:
         if "fan" in self._qidi._status:
             fan = float(self._qidi._status["fan"])
             return "{}".format(int(fan/2.55))
