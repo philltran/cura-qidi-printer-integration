@@ -75,7 +75,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._qidi = QidiConnectionManager(self._address, self._localTempGcode, False)
         self._qidi.progressChanged.connect(self._update_progress)
         self._qidi.conectionStateChanged.connect(self._conectionStateChanged)
-        self._qidi.updateDone.connect(self._update_status)
+        self._qidi.updateDone.connect(self._updateStatus)
 
         self._stage = OutputStage.ready
 
@@ -132,7 +132,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._cancel_print = True
         self.sendCommand("M33")        
 
-    def _update_status(self):
+    def _updateStatus(self):
         printer = self.printers[0]
         status = self._qidi.status
         if "bed_nowtemp" in status:
