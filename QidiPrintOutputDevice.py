@@ -1,14 +1,7 @@
 from enum import Enum
 import os.path
-from time import time, sleep
 
-import subprocess, re, threading, platform, struct, traceback, sys, base64, json, urllib
-from typing import cast, Any, Callable, Dict, List, Optional
-
-from PyQt6.QtCore import QFile, QUrl, QObject, QCoreApplication, QByteArray, QTimer, pyqtProperty, pyqtSignal, pyqtSlot
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtQml import QQmlComponent, QQmlContext
-from timeit import default_timer as Timer
+from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
 from cura.CuraApplication import CuraApplication
 from cura.PrinterOutput.PrinterOutputDevice import PrinterOutputDevice, ConnectionState, ConnectionType
@@ -17,28 +10,20 @@ from cura.PrinterOutput.Models.PrintJobOutputModel import PrintJobOutputModel
 from cura.PrinterOutput.GenericOutputController import GenericOutputController
 
 from UM.Resources import Resources
-import UM.Qt.ListModel
 
 from UM.Application import Application
 from UM.Logger import Logger
 from UM.Message import Message
 from UM.Mesh.MeshWriter import MeshWriter
-from UM.PluginRegistry import PluginRegistry
-from UM.OutputDevice.OutputDevice import OutputDevice
 from UM.OutputDevice import OutputDeviceError
-from UM.Platform import Platform
-from UM.Signal import signalemitter
-from UM.Job import Job
 
 from UM.i18n import i18nCatalog
 from .ChituCodeWriter import ChituCodeWriter
 
 from .QidiConnectionManager import QidiConnectionManager, QidiResult
 
-from queue import Queue
-from threading import Thread, Event
-from time import time
-from typing import Union, Optional, List, cast, TYPE_CHECKING
+from threading import Thread
+from typing import Optional
 
 catalog = i18nCatalog("cura")
 
@@ -63,6 +48,11 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._PluginName = 'QIDI Print'
         self.setPriority(3)
 
+        self._error_message = ""
+        self._cancel_print = False
+        self._target_send_file_name = ""
+        self._dialog = None
+
         self._application = CuraApplication.getInstance()
         self._preferences = Application.getInstance().getPreferences()
         self._preferences.addPreference("QidiPrint/autoprint", False)
@@ -85,7 +75,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._qidi = QidiConnectionManager(self._address, self._localTempGcode, False)
         self._qidi.progressChanged.connect(self._update_progress)
         self._qidi.conectionStateChanged.connect(self._conectionStateChanged)
-        self._qidi.updateDone.connect(self._update_status)
+        self._qidi.updateDone.connect(self._updateStatus)
 
         self._stage = OutputStage.ready
 
@@ -118,7 +108,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
                 self.printers[0].updateState("offline")
 
     def _update(self):
-        if self._qidi._connected == False:
+        if not self._qidi.connected:
             Thread(target=self._qidi.connect, daemon=True, name="Qidi Connect").start()
             self.printerStatusChanged.emit()
             return
@@ -139,12 +129,12 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self.sendCommand("M24")
 
     def cancelPrint(self):
-        self._cancelPrint = True
+        self._cancel_print = True
         self.sendCommand("M33")        
 
-    def _update_status(self):
+    def _updateStatus(self):
         printer = self.printers[0]
-        status = self._qidi._status
+        status = self._qidi.status
         if "bed_nowtemp" in status:
             printer.updateBedTemperature(int(status["bed_nowtemp"]))
         if "bed_targettemp" in status:
@@ -163,22 +153,22 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             if "e2_targettemp" in status:
                 extruder.updateTargetHotendTemperature(int(status["e2_targettemp"]))
 
-        if self._qidi._isPrinting:
+        if self._qidi.is_printing:
             if printer.activePrintJob is None:
                 print_job = PrintJobOutputModel(output_controller=self._output_controller)
                 printer.updateActivePrintJob(print_job)
             else:
                 print_job = printer.activePrintJob
-            elapsed = self._qidi._printing_time
-            print_job.updateTimeElapsed(int(self._qidi._printing_time))
-            print_job.updateName(self._qidi._printing_filename)
+            elapsed = int(self._qidi.printing_time)
+            print_job.updateTimeElapsed(elapsed)
+            print_job.updateName(self._qidi.printing_filename)
 
-            if self._qidi._print_total > 0:
-                progress = float(self._qidi._print_now) / float(self._qidi._print_total)
+            if self._qidi.print_total > 0:
+                progress = float(self._qidi.print_now) / float(self._qidi.print_total)
                 if progress > 0:
-                    print_job.updateTimeTotal(int(self._qidi._printing_time / progress))
-            if self._qidi._isIdle:
-                if self._cancelPrint:
+                    print_job.updateTimeTotal(int(elapsed / progress))
+            if self._qidi.is_idle:
+                if self._cancel_print:
                     job_state = 'aborting'
                 else:
                     job_state = 'paused'
@@ -189,24 +179,24 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             if printer.activePrintJob:
                 printer.updateActivePrintJob(None)
             job_state = 'idle'
-            self._cancelPrint = False
+            self._cancel_print = False
             print_job = None
 
         printer.updateState(job_state)
         self.printerStatusChanged.emit()
 
-    def requestWrite(self, node, fileName=None, *args, **kwargs):
-        if self._stage != OutputStage.ready or self._qidi._isPrinting:
+    def requestWrite(self, node, file_name=None, *args, **kwargs):
+        if self._stage != OutputStage.ready or self._qidi.is_printing:
             Message(catalog.i18nc('@info:status', 'Cannot Print, printer is busy'), title=catalog.i18nc("@info:title", "BUSY")).show()
             raise OutputDeviceError.DeviceBusyError()
 
         # Make sure post-processing plugin are run on the gcode
         self.writeStarted.emit(self)
-        if fileName:
-            fileName = os.path.splitext(fileName)[0]
+        if file_name:
+            file_name = os.path.splitext(file_name)[0]
         else:
-            fileName = "%s" % Application.getInstance().getPrintInformation().jobName
-        self.targetSendFileName = fileName
+            file_name = "%s" % Application.getInstance().getPrintInformation().jobName
+        self._target_send_file_name = file_name
 
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'qml', 'UploadFilename.qml')
         self._dialog = CuraApplication.getInstance().createQmlComponent(path, {"manager": self})
@@ -214,35 +204,35 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         self._dialog.accepted.connect(self.onFilenameAccepted)
         self._dialog.show()
         self._dialog.findChild(QObject, "autoPrint").setProperty('checked', self._autoPrint)
-        self._dialog.findChild(QObject, "nameField").setProperty('text', self.targetSendFileName)
-        self._dialog.findChild(QObject, "nameField").select(0, len(self.targetSendFileName))
+        self._dialog.findChild(QObject, "nameField").setProperty('text', self._target_send_file_name)
+        self._dialog.findChild(QObject, "nameField").select(0, len(self._target_send_file_name))
         self._dialog.findChild(QObject, "nameField").setProperty('focus', True)        
 
     def onFilenameChanged(self):
-        fileName = self._dialog.findChild(QObject, "nameField").property('text').strip()
+        file_name = self._dialog.findChild(QObject, "nameField").property('text').strip()
         forbidden_characters = "\"'´`<>()[]?*\,;:&%#$!"
         for forbidden_character in forbidden_characters:
-            if forbidden_character in fileName:
+            if forbidden_character in file_name:
                 self._dialog.setProperty('validName', False)
                 self._dialog.setProperty(
                     'validationError', 'Filename cannot contain {}'.format(forbidden_characters))
                 return
-        if fileName == '.' or fileName == '..':
+        if file_name == '.' or file_name == '..':
             self._dialog.setProperty('validName', False)
             self._dialog.setProperty(
                 'validationError', 'Filename cannot be "." or ".."')
             return
-        self._dialog.setProperty('validName', len(fileName) > 0)
+        self._dialog.setProperty('validName', len(file_name) > 0)
         self._dialog.setProperty('validationError', 'Filename too short')
 
     def startSendingThread(self):
         Logger.log('i', '=============QIDI SEND BEGIN============')
-        self._errorMsg = ''
+        self._error_message = ''
 
         self._qidi._abort = False
         self._stage = OutputStage.writing
 
-        res = self._qidi.sendfile(self.targetSendFileName)
+        res = self._qidi.sendfile(self._target_send_file_name)
         if self._message:
             self._message.hide()
             self._message = None  # type:Optional[Message]
@@ -275,8 +265,8 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             result_msg = 'Connection timeout'
         elif self._result == QidiResult.WRITE_ERROR:
             self.writeError.emit(self)
-            result_msg = self._errorMsg
-            if 'create file' in self._errorMsg:
+            result_msg = self._error_message
+            if 'create file' in self._error_message:
                 m = Message(catalog.i18nc('@info:status', ' Write error, please check that the SD card /U disk has been inserted'), lifetime=0)
                 m.show()
         elif self._result == QidiResult.FILE_EMPTY:
@@ -296,7 +286,7 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
             return
 
         cooling_chamber = global_container_stack.getProperty("cooling_chamber", "value")
-        if cooling_chamber == False:
+        if not cooling_chamber:
             return
 
         cooling_chamber_at_layer = global_container_stack.getProperty("cooling_chamber_at_layer", "value")
@@ -320,14 +310,13 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
                         setattr(scene, "gcode_dict", gcode_dict)
                         return
 
-
     def onFilenameAccepted(self):
-        self.targetSendFileName = self._dialog.findChild(QObject, "nameField").property('text').strip()
+        self._target_send_file_name = self._dialog.findChild(QObject, "nameField").property('text').strip()
         autoprint = self._dialog.findChild(QObject, "autoPrint").property('checked')
         if autoprint != self._autoPrint:
             self._autoPrint = autoprint
             self._preferences.setValue("QidiPrint/autoprint", self._autoPrint)
-        Logger.log("d", self._name + " | Filename set to: " + self.targetSendFileName)
+        Logger.log("d", self._name + " | Filename set to: " + self._target_send_file_name)
         self._dialog.deleteLater()        
         self.updateChamberFan()
         success = False
@@ -396,33 +385,33 @@ class QidiPrintOutputDevice(PrinterOutputDevice):
         return self.getFirmwareName()
 
     def getFirmwareName(self):
-        return self._qidi._firmware_ver
+        return self._qidi.firmware_version
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def xPosition(self) -> bool:
-        if "x_pos" in self._qidi._status:
-            return self._qidi._status["x_pos"][:-1]
+    def xPosition(self) -> str:
+        if "x_pos" in self._qidi.status:
+            return self._qidi.status["x_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def yPosition(self) -> bool:
-        if "y_pos" in self._qidi._status:
-            return self._qidi._status["y_pos"][:-1]
+    def yPosition(self) -> str:
+        if "y_pos" in self._qidi.status:
+            return self._qidi.status["y_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def zPosition(self) -> bool:
-        if "z_pos" in self._qidi._status:
-            return self._qidi._status["z_pos"][:-1]
+    def zPosition(self) -> str:
+        if "z_pos" in self._qidi.status:
+            return self._qidi.status["z_pos"][:-1]
         else:
             return ""
 
     @pyqtProperty(str, notify=printerStatusChanged)
-    def coolingFan(self) -> bool:
-        if "fan" in self._qidi._status:
-            fan = float(self._qidi._status["fan"])
+    def coolingFan(self) -> str:
+        if "fan" in self._qidi.status:
+            fan = float(self._qidi.status["fan"])
             return "{}".format(int(fan/2.55))
         else:
             return ""

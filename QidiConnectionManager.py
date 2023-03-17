@@ -1,8 +1,8 @@
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtProperty
 from PyQt6.QtNetwork import QUdpSocket, QHostAddress
 
-from typing import Union, Optional, List, cast, TYPE_CHECKING
-from time import time, sleep
+from typing import  cast
+from time import sleep
 from enum import Enum
 from timeit import default_timer as Timer
 from socket import *
@@ -13,17 +13,11 @@ from UM.Job import Job
 
 import subprocess
 import re
-import threading
-import platform
 import struct
-import traceback
 import sys
-import base64
-import json
-import urllib
 import os.path
 
-from threading import Thread, Lock
+from threading import Lock
 
 
 class QidiResult(Enum):
@@ -55,8 +49,8 @@ class QidiConnectionManager(QObject):
         self._connected = False
         self._socket = QUdpSocket(self)
         self._last_reply = None
-        self._isPrinting = False
-        self._isIdle = False
+        self._is_printing = False
+        self._is_idle = False
         self._print_now = 0
         self._print_total = 0
         self._busy = False
@@ -84,6 +78,42 @@ class QidiConnectionManager(QObject):
     def __send(self, cmd):
         new_command = cast(str, cmd).encode(self._file_encode, 'ignore') if type(cmd) is str else cast(bytes, cmd)  # type: bytes
         self._socket.writeDatagram(new_command, self._ip, self._port)
+
+    @pyqtProperty(int, notify=conectionStateChanged)
+    def connected(self):
+        return self._connected
+
+    @property
+    def status(self):
+        return self._status
+
+    @property
+    def firmware_version(self):
+        return self._firmware_ver
+
+    @property
+    def printing_filename(self):
+        return self._printing_filename
+
+    @property
+    def printing_time(self):
+        return self._printing_time
+
+    @property
+    def print_total(self):
+        return self._print_total
+
+    @property
+    def print_now(self):
+        return self._print_now
+
+    @property
+    def is_printing(self):
+        return self._is_printing
+
+    @property
+    def is_idle(self):
+        return self._is_idle
 
     def __recieve(self, timeout_ms=100):
         if timeout_ms > 0:
@@ -406,7 +436,7 @@ class QidiConnectionManager(QObject):
                             if len(_) == 3:
                                 self._print_now = int(_[0])
                                 self._print_total = int(_[1])
-                                self._isIdle = _[2] is '1'
+                                self._is_idle = _[2] is '1'
                         elif id == 'F':
                             _ = value.split('/')
                             if len(_) == 2:
@@ -422,16 +452,16 @@ class QidiConnectionManager(QObject):
                 except:
                     self.__log("e", "Could not parse M4000 reply: {}", msg)
 
-            if self._isPrinting == False and self._printing_time > 0:
+            if self._is_printing == False and self._printing_time > 0:
                 self._last_times = []
-                self._isPrinting = True
+                self._is_printing = True
                 msg, res = self.request("M4006", 100, 3)
                 if res == QidiResult.SUCCES:
                     _ = msg.split("'")
                     if len(_) > 2:
                         self._printing_filename = _[1]
             elif self._printing_time == 0:
-                self._isPrinting = False
+                self._is_printing = False
 
         return res
 
